@@ -127,7 +127,7 @@ class Stage {
     static fall() {
         let isFalling = false;
         
-        // 💡 【追加】連鎖モードならゆっくり(4)、ちぎりなら超高速(16)に速度を自動切り替え
+        // 💡 【追加】連鎖モードならゆっくり(8)、ちぎりなら超高速(16)に速度を自動切り替え
         const currentSpeed = this.isChainMode ? Config.chainFallingSpeed : Config.freeFallingSpeed;
 
         for(const fallingPuyo of this.fallingPuyoList) {

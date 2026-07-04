@@ -10,6 +10,13 @@ let mode; // ゲームの現在の状況
 let frame; // ゲームの現在フレーム (1/60秒ごとに1追加される)
 let combinationCount = 0; // 何連鎖かどうか
 
+// 🎵 ボイスの遅延を100%防ぐための事前読み込み（プリロード）用配列
+const chainVoices = [];
+const endVoices = [];
+let zenkeshiVoice;   // 🎵 全消しボイス用
+let batankyuVoice;   // 🎵 ばたんきゅーボイス用
+let isBatankyuVoicePlayed = false; // 🎵 ばたんきゅーボイスの重複再生防止フラグ
+
 // ENTERキーが押されたか監視するための変数
 let isEnterPressed = false;
 
@@ -34,6 +41,21 @@ function initialize() {
     Player.initialize();
     // スコア表示の準備をする
     Score.initialize();
+    
+    // 🎵 ゲーム起動時に全音声をあらかじめメモリにロードしておく（遅延対策）
+    for (let i = 1; i <= 19; i++) {
+        if (i <= 18) {
+            chainVoices[i] = new Audio(`audio/chain${i}.wav`);
+            chainVoices[i].preload = 'auto';
+        }
+        endVoices[i] = new Audio(`audio/chain${i}_end.wav`);
+        endVoices[i].preload = 'auto';
+    }
+    // 🎵 追加ボイスのロード
+    zenkeshiVoice = new Audio(`audio/zenkeshi.wav`);
+    zenkeshiVoice.preload = 'auto';
+    batankyuVoice = new Audio(`audio/batankyu.wav`);
+    batankyuVoice.preload = 'auto';
     
     // 最初はタイトル画面からスタート
     mode = 'title';
@@ -75,111 +97,196 @@ function resetGame() {
     document.getElementById('sub-message').innerText = "";
     
     frame = 0;
+    isBatankyuVoicePlayed = false; // 🎵 フラグをリセット
+
+    // 🎵 【最初の1回目遅延対策】ユーザーがENTERを押した瞬間に全ボイスのブラウザデコードを強制完了
+    for (let i = 1; i <= 19; i++) {
+        if (i <= 18 && chainVoices[i]) {
+            chainVoices[i].volume = 0;
+            chainVoices[i].play().then(() => { chainVoices[i].pause(); chainVoices[i].volume = 1; chainVoices[i].currentTime = 0; }).catch(e => {});
+        }
+        if (endVoices[i]) {
+            endVoices[i].volume = 0;
+            endVoices[i].play().then(() => { endVoices[i].pause(); endVoices[i].volume = 1; endVoices[i].currentTime = 0; }).catch(e => {});
+        }
+    }
+    if (zenkeshiVoice) {
+        zenkeshiVoice.volume = 0;
+        zenkeshiVoice.play().then(() => { zenkeshiVoice.pause(); zenkeshiVoice.volume = 1; zenkeshiVoice.currentTime = 0; }).catch(e => {});
+    }
+    if (batankyuVoice) {
+        batankyuVoice.volume = 0;
+        batankyuVoice.play().then(() => { batankyuVoice.pause(); batankyuVoice.volume = 1; batankyuVoice.currentTime = 0; }).catch(e => {});
+    }
     
     // ゲーム開始状態へ
     mode = 'start';
 }
 
+// 🔮 実際の盤面を汚さずに「次の連鎖が続くか」を100%正確に先読みする関数
+function predictIfChainContinues() {
+    const virtualBoard = [];
+    for (let y = 0; y < Config.stageRows; y++) {
+        virtualBoard[y] = [];
+        for (let x = 0; x < Config.stageCols; x++) {
+            const isErasing = Stage.erasingPuyoInfoList.some(info => info.x === x && info.y === y);
+            if (isErasing) {
+                virtualBoard[y][x] = 0;
+            } else {
+                virtualBoard[y][x] = Stage.board[y][x] ? Stage.board[y][x].puyo : 0;
+            }
+        }
+    }
+
+    for (let x = 0; x < Config.stageCols; x++) {
+        let destinationY = Config.stageRows - 1;
+        for (let y = Config.stageRows - 1; y >= 0; y--) {
+            if (virtualBoard[y][x] !== 0) {
+                const puyoColor = virtualBoard[y][x];
+                virtualBoard[y][x] = 0;
+                virtualBoard[destinationY][x] = puyoColor;
+                destinationY--;
+            }
+        }
+    }
+
+    const visited = Array.from({ length: Config.stageRows }, () => Array(Config.stageCols).fill(false));
+    
+    for (let y = 0; y < Config.stageRows; y++) {
+        for (let x = 0; x < Config.stageCols; x++) {
+            if (virtualBoard[y][x] !== 0 && !visited[y][x]) {
+                const color = virtualBoard[y][x];
+                const group = [];
+                const queue = [{ x, y }];
+                visited[y][x] = true;
+
+                while (queue.length > 0) {
+                    const current = queue.shift();
+                    group.push(current);
+
+                    const directions = [{ dx: 0, dy: -1 }, { dx: 0, dy: 1 }, { dx: -1, dy: 0 }, { dx: 1, dy: 0 }];
+                    for (const dir of directions) {
+                        const nx = current.x + dir.dx;
+                        const ny = current.y + dir.dy;
+
+                        if (nx >= 0 && nx < Config.stageCols && ny >= 0 && ny < Config.stageRows) {
+                            if (virtualBoard[ny][nx] === color && !visited[ny][nx]) {
+                                visited[ny][nx] = true;
+                                queue.push({ x: nx, y: ny });
+                            }
+                        }
+                    }
+                }
+
+                if (group.length >= Config.erasePuyoCount) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
 function loop() {
     switch(mode) {
         case 'title':
-            // タイトル画面状態：ENTERキーが押されたらゲーム開始
             if (isEnterPressed) {
-                console.log("ENTERキーの入力を感知しました！"); // ◀この行を一時的に追加
+                console.log("ENTERキーの入力を感知しました！");
                 resetGame();
             }
             break;
 
         case 'start':
-            // 最初は空中にあるかもしれないぷよを自由落下させるところからスタート
             mode = 'checkFall';
             break;
 
         case 'checkFall':
-            // 落ちるかどうか判定する
             if(Stage.checkFall()) {
                 mode = 'fall';
             } else {
-                // 落ちないならば、ぷよを消せるかどうか判定する
                 mode = 'checkErase';
             }
             break;
 
         case 'fall':
             if(!Stage.fall()) {
-                // すべて落ちきったら、ぷよを消せるかどうか判定する
                 mode = 'checkErase';
             }
             break;
 
-case 'checkErase':
-            // 消せるかどうか判定する
+        case 'checkErase':
             const eraseInfo = Stage.checkErase(frame);
             if(eraseInfo) {
                 mode = 'erasing';
                 combinationCount++;
-                // 得点を計算する（第4引数に実際の塊の配列データを追加）
                 Score.calculateScore(combinationCount, eraseInfo.piece, eraseInfo.color, eraseInfo.puyoGroups);
                 Stage.hideZenkeshi();
+
+                const willChainContinue = predictIfChainContinues();
+
+                if (willChainContinue) {
+                    if (combinationCount <= 18 && chainVoices[combinationCount]) {
+                        chainVoices[combinationCount].currentTime = 0;
+                        chainVoices[combinationCount].play().catch(e => console.log("連鎖中ボイス再生エラー:", e));
+                    }
+                } else {
+                    if (combinationCount <= 19 && endVoices[combinationCount]) {
+                        endVoices[combinationCount].currentTime = 0;
+                        endVoices[combinationCount].play().catch(e => console.log("決め台詞ボイス再生エラー:", e));
+                    }
+                }
             } else {
                 if(Stage.puyoCount == 0 && combinationCount > 0) {
-                    // 全消しの処理をする
                     Stage.showZenkeshi();
-                    // 本家ぷよぷよeスポーツの仕様（通ルール）に合わせ、全消しボーナス2100点を加算
                     Score.addScore(2100);
+                    // 🎵 全消し演出の発生と同時に「全消し！」ボイスを再生
+                    if (zenkeshiVoice) {
+                        zenkeshiVoice.currentTime = 0;
+                        zenkeshiVoice.play().catch(e => console.log("全消しボイス再生エラー:", e));
+                    }
                 }
                 combinationCount = 0;
-                // 消せなかったら、新しいぷよを登場させる
                 mode = 'newPuyo';
             }
             break;
 
         case 'erasing':
             if(!Stage.erasing(frame)) {
-                // 消し終わったら、再度落ちるかどうか判定する
                 mode = 'checkFall';
             }
             break;
 
         case 'newPuyo':
             if(!Player.createNewPuyo()) {
-                // 新しい操作用ぷよを作成出来なかったら、ゲームオーバー
                 mode = 'gameOver';
             } else {
-                // プレイヤーが操作可能
                 mode = 'playing';
             }
             break;
 
         case 'playing':
-            // プレイヤーが操作する
             const action = Player.playing(frame);
-            mode = action; // 'playing' 'moving' 'rotating' 'fix' のどれかが返ってくる
+            mode = action;
             break;
 
         case 'moving':
             if(!Player.moving(frame)) {
-                // 移動が終わったので操作可能にする
                 mode = 'playing';
             }
             break;
 
         case 'rotating':
             if(!Player.rotating(frame)) {
-                // 回転が終わったので操作可能にする
                 mode = 'playing';
             }
             break;
 
         case 'fix':
-            // 現在の位置でぷよを固定する
             Player.fix();
-            // 固定したら、まず自由落下を確認する
             mode = 'checkFall';
             break;
 
         case 'gameOver':
-            // ばたんきゅーの準備をする
             PuyoImage.prepareBatankyu(frame);
             mode = 'batankyu';
             break;
@@ -188,7 +295,13 @@ case 'checkErase':
             PuyoImage.batankyu(frame);
             Player.batankyu();
             
-            // ばたんきゅーアニメーションが一定時間(約2秒 = 120フレーム)経過したらリトライ受付へ
+            // 🎵 ばたんきゅー状態に入った瞬間に、1回だけボイスを再生
+            if (!isBatankyuVoicePlayed && batankyuVoice) {
+                isBatankyuVoicePlayed = true;
+                batankyuVoice.currentTime = 0;
+                batankyuVoice.play().catch(e => console.log("ばたんきゅーボイス再生エラー:", e));
+            }
+
             if (frame - PuyoImage.gameOverFrame > 120) {
                 document.getElementById('message-overlay').style.background = "rgba(0,0,0,0.6)";
                 document.getElementById('main-message').innerText = "GAME OVER";
@@ -198,12 +311,11 @@ case 'checkErase':
             break;
 
         case 'retryWait':
-            // リトライ待機状態：ENTERキーが押されたらリセットして再開
             if (isEnterPressed) {
                 resetGame();
             }
             break;
     }
     frame++;
-    requestAnimationFrame(loop); // 1/60秒後にもう一度呼び出す
+    requestAnimationFrame(loop);
 }

@@ -18,7 +18,7 @@ Config.stageBackgroundColor = '#ffffff'; // ステージの背景色
 Config.scoreBackgroundColor = '#24c0bb'; // スコアの背景色
 
 Config.freeFallingSpeed = 16;   // ◀ 16 に戻す（ちぎり時の超高速落下スピード）
-Config.chainFallingSpeed = 4;  // ◀ 【新設】連鎖の時だけ適用するゆっくりな落下スピード
+Config.chainFallingSpeed = 8;  // ◀ 【新設】連鎖の時だけ適用するゆっくりな落下スピード
 Config.erasePuyoCount = 4; // 何個以上揃ったら消えるか
 Config.eraseAnimationDuration = 60; // 何フレームでぷよを消すか
 
