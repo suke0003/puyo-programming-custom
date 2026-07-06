@@ -137,8 +137,18 @@
             pointer-events: none;
             z-index: 100;
         ">
-            <div id="main-message">PUSH ENTER TO START</div>
-            <div id="sub-message" style="font-size: 14px; margin-top: 10px; opacity: 0.8;">ぷよぷよプログラミング カスタム</div>
+            <div id="main-message">PUYO PUYO</div>    
+            <div id="menu-container" style="display: none; margin-top: 20px; font-family: sans-serif; text-align: center;">
+                <div id="menu-item-0" class="menu-item selected" style="font-size: 24px; color: #fff; margin: 10px 0; cursor: pointer;">▶ とこぷよ</div>
+                <div id="menu-item-1" class="menu-item" style="font-size: 24px; color: #888; margin: 10px 0; cursor: pointer;">スコアアタック</div>
+                <div id="menu-item-2" class="menu-item" style="font-size: 24px; color: #888; margin: 10px 0; cursor: pointer;">ログイン</div>
+            </div>
+            <div id="difficulty-container" style="display: none; margin-top: 20px; font-family: sans-serif; text-align: center;">
+                <div id="diff-item-0" style="font-size: 22px; color: #fff; margin: 10px 0;">▶ Easy (3 colors)</div>
+                <div id="diff-item-1" style="font-size: 22px; color: #888; margin: 10px 0;">Normal (4 colors)</div>
+                <div id="diff-item-2" style="font-size: 22px; color: #888; margin: 10px 0;">Hard (5 colors)</div>
+            </div>
+            <div id="sub-message">PUSH ENTER TO START</div>
         </div>
         <script src="components/loader.js"></script>
     </body>

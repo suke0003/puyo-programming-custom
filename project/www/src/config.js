@@ -22,7 +22,7 @@ Config.chainFallingSpeed = 8;  // ◀ 【新設】連鎖の時だけ適用する
 Config.erasePuyoCount = 4; // 何個以上揃ったら消えるか
 Config.eraseAnimationDuration = 60; // 何フレームでぷよを消すか
 
-Config.puyoColors = 4; // 何色のぷよを使うか
+Config.puyoColors = 4; // 何色のぷよを使うか（★タイトル画面の選択によって3〜5に動的変化します）
 Config.playerFallingSpeed = 0.9; // プレイ中の自然落下のスピード
 Config.playerDownSpeed = 15; // プレイ中の下キー押下時の落下スピード
 Config.playerGroundFrame = 20; // 何フレーム接地したらぷよを固定するか

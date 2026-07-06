@@ -17,19 +17,30 @@ let zenkeshiVoice;   // 🎵 全消しボイス用
 let batankyuVoice;   // 🎵 ばたんきゅーボイス用
 let isBatankyuVoicePlayed = false; // 🎵 ばたんきゅーボイスの重複再生防止フラグ
 
-// ENTERキーが押されたか監視するための変数
+// キー入力を監視するための変数
 let isEnterPressed = false;
+let isUpPressed = false;
+let isDownPressed = false;
 
-// キーボードのENTER入力を取得するイベントリスナー
+// メニュー選択位置を管理する変数 (0: とこぷよ, 1: スコアアタック, 2: ログイン)
+let selectedMenuIndex = 0;
+const MENU_COUNT = 3;
+
+// 🛠️ 難易度選択用の状態管理変数を追加
+let titleSubMode = 'mainMenu'; // 'mainMenu'（メイン画面） または 'difficultySelect'（難易度選択画面）
+let selectedDiffIndex = 0;
+const DIFF_COUNT = 3;
+
+// キーボードの入力を取得するイベントリスナー
 document.addEventListener('keydown', (e) => {
-    if (e.keyCode === 13) { // 13はENTERキーのキーコード
-        isEnterPressed = true;
-    }
+    if (e.keyCode === 13) isEnterPressed = true; // ENTER
+    if (e.keyCode === 38) isUpPressed = true;    // ↑ 矢印
+    if (e.keyCode === 40) isDownPressed = true;  // ↓ 矢印
 });
 document.addEventListener('keyup', (e) => {
-    if (e.keyCode === 13) {
-        isEnterPressed = false;
-    }
+    if (e.keyCode === 13) isEnterPressed = false;
+    if (e.keyCode === 38) isUpPressed = false;
+    if (e.keyCode === 40) isDownPressed = false;
 });
 
 function initialize() {
@@ -59,7 +70,68 @@ function initialize() {
     
     // 最初はタイトル画面からスタート
     mode = 'title';
+    titleSubMode = 'mainMenu'; // 🛠️ 初期状態はメインメニュー
     frame = 0;
+
+    // タイトル画面の初期UI表示
+    showTitleMenu();
+}
+
+// 📋 タイトル画面用のメニュー表示を更新する関数
+function showTitleMenu() {
+    document.getElementById('message-overlay').style.background = "rgba(0,0,0,0.7)";
+    document.getElementById('main-message').innerText = "PUYO PUYO";
+    
+    // 🛠️ サブモードに応じて表示するHTMLコンテナを切り替える
+    if (titleSubMode === 'mainMenu') {
+        document.getElementById('sub-message').innerText = "SELECT MENU & PUSH ENTER";
+        document.getElementById('menu-container').style.display = "block";
+        document.getElementById('difficulty-container').style.display = "none";
+        updateMenuDOM();
+    } else if (titleSubMode === 'difficultySelect') {
+        document.getElementById('sub-message').innerText = "SELECT DIFFICULTY & PUSH ENTER";
+        document.getElementById('menu-container').style.display = "none";
+        document.getElementById('difficulty-container').style.display = "block";
+        updateDifficultyDOM();
+    }
+}
+
+// 📋 選択しているメニューの見た目（色の濃さや矢印）を切り替える関数
+function updateMenuDOM() {
+    const menuNames = ["とこぷよ", "スコアアタック", "ログイン"];
+    for (let i = 0; i < MENU_COUNT; i++) {
+        const item = document.getElementById(`menu-item-${i}`);
+        if (item) {
+            if (i === selectedMenuIndex) {
+                item.innerText = `▶ ${menuNames[i]}`;
+                item.style.color = "#fff";
+                item.style.fontWeight = "bold";
+            } else {
+                item.innerText = menuNames[i];
+                item.style.color = "#888";
+                item.style.fontWeight = "normal";
+            }
+        }
+    }
+}
+
+// 📋 🛠️ 新規追加：選択している難易度メニューの見た目を更新する関数
+function updateDifficultyDOM() {
+    const diffTexts = ["Easy (3 colors)", "Normal (4 colors)", "Hard (5 colors)"];
+    for (let i = 0; i < DIFF_COUNT; i++) {
+        const item = document.getElementById(`diff-item-${i}`);
+        if (item) {
+            if (i === selectedDiffIndex) {
+                item.innerText = `▶ ${diffTexts[i]}`;
+                item.style.color = "#ffeb3b"; // 選択中は見やすいように黄色にハイライト
+                item.style.fontWeight = "bold";
+            } else {
+                item.innerText = diffTexts[i];
+                item.style.color = "#888";
+                item.style.fontWeight = "normal";
+            }
+        }
+    }
 }
 
 function resetGame() {
@@ -85,19 +157,26 @@ function resetGame() {
         }
     }
     
+    // 🛠️ 選択された難易度インデックスに応じて、出現するぷよの色数を動的に設定
+    if (selectedDiffIndex === 0) Config.puyoColors = 3; // Easy
+    if (selectedDiffIndex === 1) Config.puyoColors = 4; // Normal
+    if (selectedDiffIndex === 2) Config.puyoColors = 5; // Hard
+    
     // 各クラスの状態を初期化し直す
     Player.nextPuyoQueue = [];
     Stage.initialize();
     Player.initialize();
     Score.initialize();
     
-    // 画面の文字と背景を消去
+    // 画面の文字、メニュー、背景を消去
     document.getElementById('message-overlay').style.background = "rgba(0,0,0,0)";
     document.getElementById('main-message').innerText = "";
     document.getElementById('sub-message').innerText = "";
+    document.getElementById('menu-container').style.display = "none"; 
+    document.getElementById('difficulty-container').style.display = "none"; // 🛠️ 難易度枠も隠す
     
     frame = 0;
-    isBatankyuVoicePlayed = false; // 🎵 フラグをリセット
+    isBatankyuVoicePlayed = false; 
 
     // 🎵 【最初の1回目遅延対策】ユーザーがENTERを押した瞬間に全ボイスのブラウザデコードを強制完了
     for (let i = 1; i <= 19; i++) {
@@ -190,9 +269,53 @@ function predictIfChainContinues() {
 function loop() {
     switch(mode) {
         case 'title':
-            if (isEnterPressed) {
-                console.log("ENTERキーの入力を感知しました！");
-                resetGame();
+            // ─── ① メインメニュー選択中の処理 ───
+            if (titleSubMode === 'mainMenu') {
+                if (isUpPressed) {
+                    isUpPressed = false; // 押しっぱなし防止
+                    selectedMenuIndex = (selectedMenuIndex - 1 + MENU_COUNT) % MENU_COUNT;
+                    updateMenuDOM();
+                }
+                if (isDownPressed) {
+                    isDownPressed = false; // 押しっぱなし防止
+                    selectedMenuIndex = (selectedMenuIndex + 1) % MENU_COUNT;
+                    updateMenuDOM();
+                }
+
+                // ENTERが押された時の決定処理
+                if (isEnterPressed) {
+                    isEnterPressed = false; // 💡 押しっぱなしによる次画面の即暴発を防ぐためにフラグクリア
+                    if (selectedMenuIndex === 0) {
+                        // 「とこぷよ」選択時は難易度選択のサブモードへ移行
+                        titleSubMode = 'difficultySelect';
+                        selectedDiffIndex = 1; // デフォルトカーソルをNormal(4色)に設定
+                        showTitleMenu();
+                    } else if (selectedMenuIndex === 1) {
+                        console.log("スコアアタック が選択されました（機能は後日実装）");
+                    } else if (selectedMenuIndex === 2) {
+                        console.log("ログイン が選択されました（機能は後日実装）");
+                    }
+                }
+            }
+            // ─── ② 🛠️ 難易度選択中の処理 ───
+            else if (titleSubMode === 'difficultySelect') {
+                if (isUpPressed) {
+                    isUpPressed = false;
+                    selectedDiffIndex = (selectedDiffIndex - 1 + DIFF_COUNT) % DIFF_COUNT;
+                    updateDifficultyDOM();
+                }
+                if (isDownPressed) {
+                    isDownPressed = false;
+                    selectedDiffIndex = (selectedDiffIndex + 1) % DIFF_COUNT;
+                    updateDifficultyDOM();
+                }
+
+                if (isEnterPressed) {
+                    isEnterPressed = false; // フラグクリア
+                    // 難易度が決定したのでメインメニューの状態に戻し、ゲームを開始
+                    titleSubMode = 'mainMenu';
+                    resetGame();
+                }
             }
             break;
 
@@ -239,7 +362,6 @@ function loop() {
                 if(Stage.puyoCount == 0 && combinationCount > 0) {
                     Stage.showZenkeshi();
                     Score.addScore(2100);
-                    // 🎵 全消し演出の発生と同時に「全消し！」ボイスを再生
                     if (zenkeshiVoice) {
                         zenkeshiVoice.currentTime = 0;
                         zenkeshiVoice.play().catch(e => console.log("全消しボイス再生エラー:", e));
@@ -295,7 +417,6 @@ function loop() {
             PuyoImage.batankyu(frame);
             Player.batankyu();
             
-            // 🎵 ばたんきゅー状態に入った瞬間に、1回だけボイスを再生
             if (!isBatankyuVoicePlayed && batankyuVoice) {
                 isBatankyuVoicePlayed = true;
                 batankyuVoice.currentTime = 0;
@@ -312,7 +433,11 @@ function loop() {
 
         case 'retryWait':
             if (isEnterPressed) {
-                resetGame();
+                // 💡 押しっぱなし貫通バグ防止：タイトルに戻る瞬間にENTERフラグを即座に消去
+                isEnterPressed = false;
+                titleSubMode = 'mainMenu'; // リトライ時は必ず最初のメインメニューからやり直せるように初期化
+                showTitleMenu();
+                mode = 'title';
             }
             break;
     }
