@@ -21,27 +21,60 @@ let isDownPressed = false;
 let selectedMenuIndex = 0;
 const MENU_COUNT = 3;
 
-let titleSubMode = 'mainMenu'; 
+let titleSubMode = 'mainMenu';
 let selectedDiffIndex = 0;
 const DIFF_COUNT = 3;
 
 // スコアアタック用の変数群
-let gameType = 'endless'; 
-let remainingTime = 120;  
-let isTimeUp = false;     
-let latestRankInIndex = -1; 
-let currentHighScore = 0;  
-let lastTimerUpdateTime = 0; 
+let gameType = 'endless';
+let remainingTime = 120;
+let isTimeUp = false;
+let latestRankInIndex = -1;
+let currentHighScore = 0;
+let lastTimerUpdateTime = 0;
+let isPaused = false; // 💡【追加】ポーズ中かどうかを管理するフラグ
+let selectedPauseMenuIndex = 0; // 💡【追加】ポーズメニューの選択インデックス（0:再開, 1:タイトル）
 
 document.addEventListener('keydown', (e) => {
+    // 💡【追加】ポーズ中のキーボード操作
+    if (isPaused) {
+        if (e.keyCode === 38) { // 上向きキー
+            selectedPauseMenuIndex = 0;
+            updatePauseMenuDOM();
+        }
+        if (e.keyCode === 40) { // 下向きキー
+            selectedPauseMenuIndex = 1;
+            updatePauseMenuDOM();
+        }
+        if (e.keyCode === 13) { // Enterキー（決定）
+            if (selectedPauseMenuIndex === 0) {
+                togglePause();
+            } else {
+                backToTitleFromPause();
+            }
+        }
+        if (e.keyCode === 27) { // ポーズ中にEscが押されたら再開
+            togglePause();
+        }
+        return; // ポーズ中の場合は通常のゲーム入力を行わない
+    }
+
     if (e.keyCode === 13) isEnterPressed = true; 
     
+    if (e.keyCode === 27) {
+        if (mode === 'playing' || mode === 'moving' || mode === 'rotating' || mode === 'fix' || mode === 'checkFall' || mode === 'fall' || mode === 'checkErase' || mode === 'erasing' || mode === 'newPuyo') {
+            togglePause();
+            return;
+        }
+    }
+
     // 💡 修正箇所：ゲームオーバー系モードの時は、矢印キー入力を完全に無視する
     if (mode === 'gameOver' || mode === 'batankyu' || mode === 'retryWait') return;
     
     if (e.keyCode === 38) isUpPressed = true;    
     if (e.keyCode === 40) isDownPressed = true;  
 });
+
 document.addEventListener('keyup', (e) => {
     if (e.keyCode === 13) isEnterPressed = false;
     if (e.keyCode === 38) isUpPressed = false;
@@ -121,7 +154,7 @@ function updateMenuDOM() {
 }
 
 function updateDifficultyDOM() {
-    const diffTexts = ["Easy (3 colors)", "Normal (4 colors)", "Hard (5 colors)"];
+    const diffTexts = ["EASY (3 colors)", "NORMAL (4 colors)", "HARD (5 colors)"];
     for (let i = 0; i < DIFF_COUNT; i++) {
         const item = document.getElementById(`diff-item-${i}`);
         if (item) {
@@ -336,7 +369,85 @@ function predictIfChainContinues() {
     return false;
 }
 
+// 💡【追加・修正】ポーズ状態を切り替える関数
+function togglePause() {
+    isPaused = !isPaused;
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) {
+        pauseMenu.style.display = isPaused ? 'block' : 'none';
+    }
+    if (isPaused) {
+        selectedPauseMenuIndex = 0; // ポーズを開いたときは「再開」を初期選択にする
+        updatePauseMenuDOM();
+    }
+}
+
+// 💡【追加】ポーズメニューの選択状態（見た目）を更新する関数
+function updatePauseMenuDOM() {
+    // 💡 選択状態（selectedPauseMenuIndex）に応じて、テキストの「▶」と色を綺麗に切り替える
+    const resumeBtn = document.getElementById('pause-resume-btn');
+    const titleBtn = document.getElementById('pause-title-btn');
+    
+    if (!resumeBtn || !titleBtn) return;
+
+    if (selectedPauseMenuIndex === 0) {
+        // 「ゲームを再開する」が選択されているとき
+        resumeBtn.innerText = '▶ ゲームを再開する';
+        resumeBtn.style.color = '#ffffff'; // ホワイト
+        
+        titleBtn.innerText = 'タイトルに戻る';
+        titleBtn.style.color = '#888888'; // グレー
+    } else {
+        // 「タイトルに戻る」が選択されているとき
+        resumeBtn.innerText = 'ゲームを再開する';
+        resumeBtn.style.color = '#888888'; // グレー
+        
+        titleBtn.innerText = '▶ タイトルに戻る';
+        titleBtn.style.color = '#ffffff'; // ホワイト
+    }
+}
+
+// 💡【追加】マウスがメニューの上に乗った（ホバーした）ときに選択インデックスを合わせる関数
+function hoverPauseMenu(index) {
+    selectedPauseMenuIndex = index;
+    updatePauseMenuDOM();
+}
+
+function backToTitleFromPause() {
+    isPaused = false;
+    const pauseMenu = document.getElementById('pause-menu');
+    if (pauseMenu) pauseMenu.style.display = 'none';
+    
+    isTimeUp = false;
+    titleSubMode = 'mainMenu'; 
+    showTitleMenu();
+    mode = 'title';
+}
+
 function loop() {
+    // 💡【追加】ポーズ中の場合の処理
+    if (isPaused) {
+        // スコアアタックモードの場合のみ、ポーズ中であってもタイマーの減少処理を実行する
+        if (gameType === 'scoreAttack' && !isTimeUp) {
+            const now = Date.now();
+            if (now - lastTimerUpdateTime >= 1000) {
+                remainingTime--;
+                lastTimerUpdateTime += 1000;
+                if (remainingTime <= 0) {
+                    remainingTime = 0;
+                    isTimeUp = true; 
+                    // タイムアップしたら自動的にポーズを解除してゲームオーバー側へ進める
+                    togglePause(); 
+                }
+                const timerDisp = document.getElementById('timer-display');
+                if (timerDisp) timerDisp.innerText = remainingTime;
+            }
+        }
+        // ゲーム自体の進行（switch(mode)）は実行せずに次フレームへリクエスト
+        frame++;
+        requestAnimationFrame(loop);
+        return;
+    }
     switch(mode) {
         case 'title':
             if (titleSubMode === 'mainMenu') {
@@ -537,7 +648,8 @@ function loop() {
             break;
     }
 
-    if (gameType === 'scoreAttack' && !isTimeUp && (mode === 'playing' || mode === 'moving' || mode === 'rotating' || mode === 'fix' || mode === 'checkFall' || mode === 'fall' || mode === 'checkErase' || mode === 'erasing' || mode === 'newPuyo')) {
+    // 💡【修正】通常時（!isPaused）のみ、ここでタイマーを更新する（ポーズ中のスコアタタイマーは上部で処理しているため）
+    if (!isPaused && gameType === 'scoreAttack' && !isTimeUp && (mode === 'playing' || mode === 'moving' || mode === 'rotating' || mode === 'fix' || mode === 'checkFall' || mode === 'fall' || mode === 'checkErase' || mode === 'erasing' || mode === 'newPuyo')) {
         const now = Date.now();
         if (now - lastTimerUpdateTime >= 1000) {
             remainingTime--;

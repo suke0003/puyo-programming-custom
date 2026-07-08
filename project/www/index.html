@@ -60,7 +60,8 @@
 <body style="margin:0;">
     <div id="game-wrapper" style="position: relative; margin: 0 auto; width: fit-content; display: flex;">
         <div id="stage" style="position:relative; overflow: hidden; background: url(img/puyo_2bg.png)"></div>
-        
+        <button onclick="togglePause()" style="position: absolute; top: 10px; right: 10px; padding: 6px 12px; font-size: 14px; font-weight: bold; background: #444; color: #fff; border: 2px solid #fff; border-radius: 4px; cursor: pointer; z-index: 100;">PAUSE (Esc)</button>
+
         <div id="side-area" style="
             position: absolute;
             left: 100%; /* ステージのすぐ右隣 */
@@ -147,15 +148,22 @@
             <div id="menu-item-2" class="menu-item" style="font-size: 24px; color: #888; margin: 10px 0; cursor: pointer;">ログイン</div>
         </div>
         <div id="difficulty-container" style="display: none; margin-top: 20px; font-family: sans-serif; text-align: center;">
-            <div id="diff-item-0" style="font-size: 22px; color: #fff; margin: 10px 0;">▶ Easy (3 colors)</div>
-            <div id="diff-item-1" style="font-size: 22px; color: #888; margin: 10px 0;">Normal (4 colors)</div>
-            <div id="diff-item-2" style="font-size: 22px; color: #888; margin: 10px 0;">Hard (5 colors)</div>
+            <div id="diff-item-0" style="font-size: 22px; color: #fff; margin: 10px 0;">▶ EASY (3 colors)</div>
+            <div id="diff-item-1" style="font-size: 22px; color: #888; margin: 10px 0;">NORMAL (4 colors)</div>
+            <div id="diff-item-2" style="font-size: 22px; color: #888; margin: 10px 0;">HARD (5 colors)</div>
         </div>
         <div id="ranking-container" style="display: none; position: absolute; top: 50px; left: 50%; transform: translateX(-50%); font-family: sans-serif; text-align: center; color: #fff; width: 280px; background: rgba(0,0,0,0.9); padding: 15px; border-radius: 10px; z-index: 1000;">
             <h3 style="color: #ffeb3b; margin-top: 0; margin-bottom: 10px;">📊 SCORE RANKING</h3>
             <div id="ranking-list" style="text-align: left; font-size: 15px; line-height: 1.5; margin-bottom: 15px;"></div>
         </div>
         <div id="sub-message">PUSH ENTER TO START</div>
+    </div>
+    <div id="pause-menu" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999;">
+        <div onclick="togglePause()" style="position: absolute; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.75); cursor: pointer;"></div>
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(26, 26, 26, 0.95); padding: 40px 30px; border: 4px solid #fff; border-radius: 12px; text-align: center; font-family: sans-serif; min-width: 280px; box-shadow: 0 0 20px rgba(0,0,0,0.6);">
+            <h2 style="margin-top: 0; margin-bottom: 30px; font-size: 26px; color: #ffcc00; letter-spacing: 2px;">PAUSE</h2>
+            <div id="pause-resume-btn" onclick="togglePause()" style="font-size: 22px; color: #fff; margin: 20px 0; cursor: pointer; font-weight: bold; text-align: center;">▶ ゲームを再開する</div>
+            <div id="pause-title-btn" onclick="backToTitleFromPause()" style="font-size: 22px; color: #888; margin: 20px 0; cursor: pointer; font-weight: bold; text-align: center;">タイトルに戻る</div>        </div>
     </div>
     <script src="components/loader.js"></script>
 </body>
