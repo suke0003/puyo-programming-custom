@@ -147,14 +147,29 @@ static initialize () {
 
         const puyoColors = Math.max(1, Math.min(5, Config.puyoColors));
 
-        // キュー（次以降のぷよのストック）が3手先分（計6個）に満たない場合、補充する
-        while (this.nextPuyoQueue.length < 6) {
-            this.nextPuyoQueue.push(Math.floor(Math.random() * puyoColors) + 1);
-        }
+        // 💡【修正】なぞぷよモード時はネクストキューを使用、それ以外はランダム生成
+        if (gameType === 'puzzle') {
+            // なぞぷよモード：currentPuzzle.nextQueue から取り出す
+            if (puzzleNextQueueIndex >= currentPuzzle.nextQueue.length) {
+                // ネクストキューが尽きた場合は、ネクストキューの最後の値をループさせる
+                puzzleNextQueueIndex = currentPuzzle.nextQueue.length - 1;
+            }
+            
+            // 2個分ぷよを取り出す
+            this.centerPuyo = currentPuzzle.nextQueue[puzzleNextQueueIndex];
+            this.movablePuyo = currentPuzzle.nextQueue[puzzleNextQueueIndex + 1];
+            puzzleNextQueueIndex += 2;
+        } else {
+            // 通常モード：ランダムでネクストを生成
+            // キュー（次以降のぷよのストック）が3手先分（計6個）に満たない場合、補充する
+            while (this.nextPuyoQueue.length < 6) {
+                this.nextPuyoQueue.push(Math.floor(Math.random() * puyoColors) + 1);
+            }
 
-        // キューの先頭から「今落ちるぷよ」の2個を取り出す（取り出した分、後ろが自動で詰まる）
-        this.centerPuyo = this.nextPuyoQueue.shift();
-        this.movablePuyo = this.nextPuyoQueue.shift();
+            // キューの先頭から「今落ちるぷよ」の2個を取り出す（取り出した分、後ろが自動で詰まる）
+            this.centerPuyo = this.nextPuyoQueue.shift();
+            this.movablePuyo = this.nextPuyoQueue.shift();
+        }
 
         // 【ここから画面描画の準備】
         // 新しい操作用ぷよ画像を作成する
@@ -455,11 +470,22 @@ static initialize () {
         next1Box.innerHTML = '';
         next2Box.innerHTML = '';
 
-        // 配列（this.nextPuyoQueue）から次、その次のぷよの情報を参照
-        const n1_center = this.nextPuyoQueue[0];
-        const n1_movable = this.nextPuyoQueue[1];
-        const n2_center = this.nextPuyoQueue[2];
-        const n2_movable = this.nextPuyoQueue[3];
+        // 💡【修正】なぞぷよモード時は currentPuzzle.nextQueue から取得、それ以外は this.nextPuyoQueue から取得
+        let n1_center, n1_movable, n2_center, n2_movable;
+
+        if (gameType === 'puzzle') {
+            // なぞぷよモード
+            n1_center = currentPuzzle.nextQueue[puzzleNextQueueIndex];
+            n1_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 1];
+            n2_center = currentPuzzle.nextQueue[puzzleNextQueueIndex + 2];
+            n2_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 3];
+        } else {
+            // 通常モード
+            n1_center = this.nextPuyoQueue[0];
+            n1_movable = this.nextPuyoQueue[1];
+            n2_center = this.nextPuyoQueue[2];
+            n2_movable = this.nextPuyoQueue[3];
+        }
 
         // 各画像にサイズを強制適用する補助関数
         const styleNextPuyo = (img, topPx) => {

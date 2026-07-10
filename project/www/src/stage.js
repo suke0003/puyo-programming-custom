@@ -390,6 +390,40 @@ class Stage {
             effectElement.remove();
         }, 800);
     }
+
+    // 💡【追加】なぞぷよ用：ぷよを画面に表示する関数
+    static displayPuyo(x, y, puyo) {
+        if (!this.board[y] || !this.board[y][x]) return;
+        
+        const boardCell = this.board[y][x];
+        if (boardCell.element) {
+            // すでに画面に表示されている
+            return;
+        }
+
+        // 画像を作成し配置する
+        const puyoImage = PuyoImage.getPuyo(puyo);
+        puyoImage.style.left = x * Config.puyoImgWidth + "px";
+        puyoImage.style.top = (y - 1) * Config.puyoImgHeight + "px";
+        this.stageElement.appendChild(puyoImage);
+
+        // element を更新
+        boardCell.element = puyoImage;
+    }
+
+    // 💡【追加】なぞぷよ用：初期盤面の全ぷよを画面に表示
+    static renderInitialBoard() {
+        for (let y = 0; y < Config.stageRows; y++) {
+            for (let x = 0; x < Config.stageCols; x++) {
+                if (this.board[y][x]) {
+                    const puyo = this.board[y][x].puyo;
+                    if (puyo >= 1 && puyo <= 5) {
+                        this.displayPuyo(x, y, puyo);
+                    }
+                }
+            }
+        }
+    }
 }
 Stage.fallingPuyoList = [];
 Stage.erasingPuyoInfoList = [];

@@ -40,6 +40,8 @@ let currentPuzzleId = null;
 let currentPuzzle = null;
 let puzzleNextQueueIndex = 0;  // ネクストキューのどこまで使ったかを記録
 let puzzleClearConditionMet = false; // クリア条件を満たしたかを記録
+let selectedPuzzleResultMenuIndex = 0; // 💡【追加】パズルクリア/失敗画面のメニューインデックス（0:次の問題, 1:一覧に戻る, 2:タイトル）
+const PUZZLE_RESULT_MENU_COUNT = 3; // 💡【追加】パズルメニュー項目数
 
 document.addEventListener('keydown', (e) => {
     // 💡【追加】ポーズ中のキーボード操作
@@ -65,6 +67,22 @@ document.addEventListener('keydown', (e) => {
             togglePause();
         }
         return; // ポーズ中の場合は通常のゲーム入力を行わない
+    }
+
+    // 💡【追加】パズルクリア/失敗画面でのキーボード操作
+    if (mode === 'puzzleClearWait' || mode === 'puzzleOverWait') {
+        if (e.keyCode === 38) { // 上向きキー
+            selectedPuzzleResultMenuIndex = Math.max(0, selectedPuzzleResultMenuIndex - 1);
+            updatePuzzleResultMenuDOM();
+        }
+        if (e.keyCode === 40) { // 下向きキー
+            selectedPuzzleResultMenuIndex = Math.min(PUZZLE_RESULT_MENU_COUNT - 1, selectedPuzzleResultMenuIndex + 1);
+            updatePuzzleResultMenuDOM();
+        }
+        if (e.keyCode === 13) { // Enterキー（決定）
+            selectPuzzleResultMenu(selectedPuzzleResultMenuIndex);
+        }
+        return;
     }
 
     if (e.keyCode === 13) isEnterPressed = true; 
@@ -272,6 +290,8 @@ function resetGame() {
                     const puyoColor = currentPuzzle.initialBoard[y][x];
                     if (puyoColor > 0) {
                         Stage.board[y][x] = { puyo: puyoColor, element: null };
+                    } else {
+                        Stage.board[y][x] = null;
                     }
                 }
             }
@@ -323,6 +343,19 @@ function resetGame() {
     Stage.initialize();
     Player.initialize();
     Score.initialize();
+    
+    // 💡【追加】なぞぷよ時の初期盤面を画面に表示
+    if (gameType === 'puzzle') {
+        Stage.renderInitialBoard();
+        Stage.puyoCount = 0;
+        for (let y = 0; y < Config.stageRows; y++) {
+            for (let x = 0; x < Config.stageCols; x++) {
+                if (Stage.board[y][x]) {
+                    Stage.puyoCount++;
+                }
+            }
+        }
+    }
     
     document.getElementById('message-overlay').style.background = "rgba(0,0,0,0)";
     document.getElementById('main-message').innerText = "";
@@ -617,6 +650,89 @@ function checkPuzzleClearCondition() {
     return false;
 }
 
+// 💡【追加】パズル結果画面のメニュー表示を更新
+function updatePuzzleResultMenuDOM() {
+    let resultContainer = document.getElementById('puzzle-result-menu-container');
+    if (!resultContainer) {
+        // コンテナが存在しない場合は作成する
+        const overlay = document.getElementById('message-overlay');
+        const container = document.createElement('div');
+        container.id = 'puzzle-result-menu-container';
+        container.style.cssText = 'position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(26, 26, 26, 0.95); padding: 40px 30px; border: 4px solid #fff; border-radius: 12px; text-align: center; font-family: sans-serif; min-width: 280px; z-index: 1001;';
+        
+        container.innerHTML = `
+            <div id="puzzle-menu-item-0" onmouseover="hoverPuzzleResultMenu(0)" style="font-size: 22px; color: #fff; margin: 20px 0; cursor: pointer; font-weight: bold;">▶ 次の問題に進む</div>
+            <div id="puzzle-menu-item-1" onmouseover="hoverPuzzleResultMenu(1)" style="font-size: 22px; color: #888; margin: 20px 0; cursor: pointer; font-weight: bold;">問題一覧に戻る</div>
+            <div id="puzzle-menu-item-2" onmouseover="hoverPuzzleResultMenu(2)" style="font-size: 22px; color: #888; margin: 20px 0; cursor: pointer; font-weight: bold;">タイトルに戻る</div>
+        `;
+        overlay.appendChild(container);
+        resultContainer = container;
+    }
+
+    // メニュー項目の見た目を更新
+    for (let i = 0; i < PUZZLE_RESULT_MENU_COUNT; i++) {
+        const item = document.getElementById(`puzzle-menu-item-${i}`);
+        if (item) {
+            if (i === selectedPuzzleResultMenuIndex) {
+                item.style.color = '#ffffff';
+                if (i === 0) {
+                    item.innerText = '▶ 次の問題に進む';
+                } else if (i === 1) {
+                    item.innerText = '▶ 問題一覧に戻る';
+                } else {
+                    item.innerText = '▶ タイトルに戻る';
+                }
+            } else {
+                item.style.color = '#888888';
+                if (i === 0) {
+                    item.innerText = '次の問題に進む';
+                } else if (i === 1) {
+                    item.innerText = '問題一覧に戻る';
+                } else {
+                    item.innerText = 'タイトルに戻る';
+                }
+            }
+        }
+    }
+}
+
+// 💡【追加】パズル結果メニューのホバー処理
+function hoverPuzzleResultMenu(index) {
+    selectedPuzzleResultMenuIndex = index;
+    updatePuzzleResultMenuDOM();
+}
+
+// 💡【追加】パズル結果メニューの選択処理
+function selectPuzzleResultMenu(index) {
+    if (index === 0) {
+        // 次の問題に進む
+        const nextPuzzle = PUZZLES.find(p => p.id === currentPuzzleId + 1);
+        if (nextPuzzle) {
+            selectPuzzle(nextPuzzle.id);
+        } else {
+            // 次の問題がない場合は問題一覧に戻る
+            showPuzzleList();
+            mode = 'title';
+            titleSubMode = 'puzzleSelect';
+        }
+    } else if (index === 1) {
+        // 問題一覧に戻る
+        document.getElementById('puzzle-goal-container').style.display = 'none';
+        document.getElementById('puzzle-next-list-container').style.display = 'none';
+        showPuzzleList();
+        mode = 'title';
+        titleSubMode = 'puzzleSelect';
+    } else {
+        // タイトルに戻る
+        document.getElementById('puzzle-goal-container').style.display = 'none';
+        document.getElementById('puzzle-next-list-container').style.display = 'none';
+        isTimeUp = false;
+        titleSubMode = 'mainMenu';
+        showTitleMenu();
+        mode = 'title';
+    }
+}
+
 function loop() {
     // 💡【追加】ポーズ中の場合の処理
     if (isPaused) {
@@ -790,40 +906,34 @@ function loop() {
             // 💡【追加】なぞぷよクリア画面
             document.getElementById('message-overlay').style.background = "rgba(0,0,0,0.6)";
             document.getElementById('main-message').innerText = "CLEAR!";
-            document.getElementById('sub-message').innerText = "PUSH ENTER";
+            document.getElementById('sub-message').innerText = "SELECT & PUSH ENTER";
             isEnterPressed = false;
             isUpPressed = false;
             isDownPressed = false;
+            selectedPuzzleResultMenuIndex = 0;
+            updatePuzzleResultMenuDOM();
             mode = 'puzzleClearWait';
             break;
 
         case 'puzzleClearWait':
-            if (isEnterPressed) {
-                isEnterPressed = false;
-                showPuzzleList();
-                mode = 'title';
-                titleSubMode = 'puzzleSelect';
-            }
+            // なぞぷよクリア画面での操作は keydown イベントで処理
             break;
 
         case 'puzzleOver':
             // 💡【追加】なぞぷよゲームオーバー画面
             document.getElementById('message-overlay').style.background = "rgba(0,0,0,0.6)";
             document.getElementById('main-message').innerText = "GAME OVER";
-            document.getElementById('sub-message').innerText = "PUSH ENTER";
+            document.getElementById('sub-message').innerText = "SELECT & PUSH ENTER";
             isEnterPressed = false;
             isUpPressed = false;
             isDownPressed = false;
+            selectedPuzzleResultMenuIndex = 0;
+            updatePuzzleResultMenuDOM();
             mode = 'puzzleOverWait';
             break;
 
         case 'puzzleOverWait':
-            if (isEnterPressed) {
-                isEnterPressed = false;
-                showPuzzleList();
-                mode = 'title';
-                titleSubMode = 'puzzleSelect';
-            }
+            // なぞぷよゲームオーバー画面での操作は keydown イベントで処理
             break;
 
         case 'gameOver':
