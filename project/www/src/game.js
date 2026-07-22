@@ -809,9 +809,31 @@ function selectPuzzleResultMenu(index) {
     }
 }
 
+// 💡【修正】スコアアタック用タイマー更新関数（ポーズ中も表示を更新）
+function updateScoreAttackTimer() {
+    if (gameType !== 'scoreAttack' || isTimeUp) return;
+    
+    const now = Date.now();
+    if (now - lastTimerUpdateTime >= 1000) {
+        remainingTime--;
+        lastTimerUpdateTime += 1000;
+        if (remainingTime <= 0) {
+            remainingTime = 0;
+            isTimeUp = true; 
+        }
+        const timerDisp = document.getElementById('timer-display');
+        if (timerDisp) timerDisp.innerText = remainingTime;
+    }
+}
+
 function loop() {
     // 💡【追加】ポーズボタンの表示制御
     updatePauseButtonVisibility();
+    
+    // 💡【修正】スコアアタックのタイマーはポーズ中も進める（表示も更新）
+    if (gameType === 'scoreAttack' && !isTimeUp && (mode === 'playing' || mode === 'moving' || mode === 'rotating' || mode === 'fix' || mode === 'checkFall' || mode === 'fall' || mode === 'checkErase' || mode === 'erasing' || mode === 'newPuyo' || isPaused)) {
+        updateScoreAttackTimer();
+    }
     
     // 💡【追加】ポーズ中の場合の処理
     if (isPaused) {
@@ -1069,21 +1091,6 @@ function loop() {
                 mode = 'title';
             }
             break;
-    }
-
-    // 💡【修正】通常時のみ、ここでタイマーを更新
-    if (!isPaused && gameType === 'scoreAttack' && !isTimeUp && (mode === 'playing' || mode === 'moving' || mode === 'rotating' || mode === 'fix' || mode === 'checkFall' || mode === 'fall' || mode === 'checkErase' || mode === 'erasing' || mode === 'newPuyo')) {
-        const now = Date.now();
-        if (now - lastTimerUpdateTime >= 1000) {
-            remainingTime--;
-            lastTimerUpdateTime += 1000;
-            if (remainingTime <= 0) {
-                remainingTime = 0;
-                isTimeUp = true; 
-            }
-            const timerDisp = document.getElementById('timer-display');
-            if (timerDisp) timerDisp.innerText = remainingTime;
-        }
     }
 
     frame++;
