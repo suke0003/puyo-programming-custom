@@ -259,7 +259,12 @@ function showTitleMenu() {
     const highCont = document.getElementById('highscore-container');
     if (timerCont) timerCont.style.display = "none";
     if (highCont) highCont.style.display = "none";
-    
+
+    const goalCont = document.getElementById('puzzle-goal-container');
+    const puzzleNextCont = document.getElementById('puzzle-next-list-container');
+    if (goalCont) goalCont.style.display = 'none';
+    if (puzzleNextCont) puzzleNextCont.style.display = 'none';
+
     if (titleSubMode === 'mainMenu') {
         document.getElementById('sub-message').innerText = "SELECT MENU & PUSH ENTER";
         document.getElementById('menu-container').style.display = "block";
@@ -330,15 +335,25 @@ function resetGame() {
     }
 
     // --- 基盤初期化を先に行う ---
-    // Stage.initialize が board の基本構造（13x6）を作るので、まず呼ぶ
     Stage.initialize();
     Player.initialize();
     Score.initialize();
 
+    // 連鎖／消去関連の残骸を完全に初期化（これが重要）
+    combinationCount = 0;
+    // Stage の落下・消去リストを空にする
+    if (Stage) {
+        Stage.fallingPuyoList = [];
+        Stage.erasingPuyoInfoList = [];
+        Stage.isChainMode = false;
+        Stage.chainCount = 0;
+        // 全消し演出がもし出ていたら消す
+        if (Stage.hideZenkeshi) Stage.hideZenkeshi();
+    }
+
     // なぞぷよ専用初期化
     if (gameType === 'puzzle') {
         if (currentPuzzle) {
-            // Stage.board を currentPuzzle.initialBoard の内容で上書き（element は null）
             for (let y = 0; y < Config.stageRows; y++) {
                 for (let x = 0; x < Config.stageCols; x++) {
                     const puyoColor = (currentPuzzle.initialBoard[y] && currentPuzzle.initialBoard[y][x]) || 0;
@@ -349,15 +364,12 @@ function resetGame() {
                     }
                 }
             }
-
-            // なぞぷよでは currentPuzzle.nextQueue を唯一のソースにする（Player.nextPuyoQueue は空にする）
             Player.nextPuyoQueue = [];
             puzzleNextQueueIndex = 0;
             puzzleClearConditionMet = false;
             puzzleSolutionMatched = false;
         }
 
-        // UI表示
         const goalCont = document.getElementById('puzzle-goal-container');
         const nextListCont = document.getElementById('puzzle-next-list-container');
         if (goalCont) goalCont.style.display = 'block';
@@ -365,10 +377,7 @@ function resetGame() {
         updatePuzzleGoalDisplay();
         updatePuzzleNextListDisplay();
 
-        // 初期盤面を画面に表示（Stage.board に element がないので element を作る）
         Stage.renderInitialBoard();
-
-        // Stage.puyoCount を再計算
         Stage.puyoCount = 0;
         for (let y = 0; y < Config.stageRows; y++) {
             for (let x = 0; x < Config.stageCols; x++) {
@@ -408,7 +417,7 @@ function resetGame() {
         Player.nextPuyoQueue = [];
     }
 
-    // 表示系の初期化（overlay 等）
+    // UI リセット
     const overlay = document.getElementById('message-overlay');
     if (overlay) overlay.style.background = "rgba(0,0,0,0)";
     const mainMessage = document.getElementById('main-message');
@@ -423,14 +432,13 @@ function resetGame() {
     const rankingContainer = document.getElementById('ranking-container');
     if (rankingContainer) rankingContainer.style.display = "none";
 
-    // メニュー用クラスを削除
     if (overlay) overlay.classList.remove('menu-active');
 
-    // フレーム・音声関連初期化
     frame = 0;
     latestRankInIndex = -1;
     isBatankyuVoicePlayed = false;
 
+    // 音声プリロード処理等は既存通り（省略せず残す）
     for (let i = 1; i <= 19; i++) {
         if (i <= 18 && chainVoices[i]) {
             chainVoices[i].volume = 0;
@@ -450,7 +458,6 @@ function resetGame() {
         batankyuVoice.play().then(() => { batankyuVoice.pause(); batankyuVoice.volume = 1; batankyuVoice.currentTime = 0; }).catch(e => {});
     }
 
-    // リセット時にキーの押下フラグも綺麗にして誤爆を防ぐ
     isUpPressed = false;
     isDownPressed = false;
     isEnterPressed = false;
@@ -752,23 +759,31 @@ function updatePuzzleGoalDisplay() {
 // 💡【追加】なぞぷよのネクスト一覧を更新
 function updatePuzzleNextListDisplay() {
     if (!currentPuzzle) return;
+    const parentContainer = document.getElementById('puzzle-next-list-container');
     const container = document.getElementById('puzzle-next-list');
-    if (!container) return;
+    if (!container || !parentContainer) return;
+
+    // 見た目：なぞぷよ専用は背景透明（通常NEXTは別枠）
+    parentContainer.style.background = 'transparent';
+    parentContainer.style.boxShadow = 'none';
+    parentContainer.style.borderRadius = '0';
+    parentContainer.style.padding = '6px 0';
+    parentContainer.style.position = 'relative';
+    parentContainer.style.zIndex = '10';
+
     container.innerHTML = '';
 
     const IMG_SIZE = Math.max(20, Math.floor(Config.puyoImgWidth * 0.5));
 
-    // startIndex を現在の手も含めるために少し前にさかのぼる（0 未満にはしない）
-    const startIndex = Math.max(0, puzzleNextQueueIndex - 2);
-
-    // wrapper を横並びにして各列に罫線を入れる
+    // 全キューを固定表示（消費済みは薄くする）
+    // 表示は列（横）ごとで、各列は縦: [番号][movable][center]
     const wrapper = document.createElement('div');
     wrapper.style.display = 'flex';
     wrapper.style.flexDirection = 'row';
-    wrapper.style.gap = '8px';
+    wrapper.style.gap = '10px';
     wrapper.style.alignItems = 'flex-start';
 
-    for (let pos = startIndex; pos < currentPuzzle.nextQueue.length; pos += 2) {
+    for (let pos = 0; pos < currentPuzzle.nextQueue.length; pos += 2) {
         const centerColor = currentPuzzle.nextQueue[pos] || 0;
         const movableColor = (pos + 1 < currentPuzzle.nextQueue.length) ? currentPuzzle.nextQueue[pos + 1] : 0;
 
@@ -776,21 +791,20 @@ function updatePuzzleNextListDisplay() {
         col.style.display = 'flex';
         col.style.flexDirection = 'column';
         col.style.alignItems = 'center';
-        col.style.padding = '6px 10px';
-        // 罫線（左側）を入れる
-        if (pos !== startIndex) col.style.borderLeft = '1px solid rgba(0,0,0,0.12)';
+        col.style.padding = '4px 8px';
+        // 罫線（左）を入れる
+        if (pos > 0) col.style.borderLeft = '1px solid rgba(0,0,0,0.08)';
 
-        // 残り手数（数字）: 残りのペア数を表示
-        const pairIndex = Math.floor(pos / 2);
+        // 残りペア数（番号）
         const remainingPairs = Math.ceil((currentPuzzle.nextQueue.length - pos) / 2);
         const numDiv = document.createElement('div');
-        numDiv.style.fontSize = '13px';
-        numDiv.style.color = '#fff';
+        numDiv.style.fontSize = '12px';
+        numDiv.style.color = '#666';
         numDiv.style.marginBottom = '6px';
         numDiv.innerText = String(remainingPairs);
         col.appendChild(numDiv);
 
-        // movable (上)
+        // 画像ヘルパー：position を static にして親コンテナのレイアウトに従わせる
         const createSmall = (color) => {
             if (!color) {
                 const ph = document.createElement('div');
@@ -801,31 +815,36 @@ function updatePuzzleNextListDisplay() {
                 ph.style.marginBottom = '4px';
                 return ph;
             }
-            const img = PuyoImage.getPuyo(color).cloneNode ? PuyoImage.getPuyo(color).cloneNode(true) : PuyoImage.getPuyo(color);
+            const elem = PuyoImage.getPuyo(color);
+            let img;
+            try {
+                img = elem.cloneNode(true);
+            } catch (e) {
+                img = elem;
+            }
             img.style.width = IMG_SIZE + 'px';
             img.style.height = IMG_SIZE + 'px';
-            img.style.position = 'static';
+            img.style.position = 'static'; // ここが重要（盤面への absolute 重なりを防ぐ）
             img.style.left = '';
             img.style.top = '';
             img.style.marginBottom = '4px';
             return img;
         };
 
-        col.appendChild(createSmall(movableColor));
-        col.appendChild(createSmall(centerColor));
+        const movableEl = createSmall(movableColor);
+        const centerEl = createSmall(centerColor);
+
+        // consumption: if this pair is already consumed (pos < puzzleNextQueueIndex) -> dim
+        if (pos < puzzleNextQueueIndex) {
+            col.style.opacity = '0.35';
+        }
+
+        col.appendChild(movableEl);
+        col.appendChild(centerEl);
         wrapper.appendChild(col);
     }
 
     container.appendChild(wrapper);
-
-    // 表示領域（親コンテナ）を右側に寄せる／上の方に見えるように調整
-    const parent = document.getElementById('puzzle-next-list-container');
-    if (parent) {
-        parent.style.background = 'transparent';
-        parent.style.boxShadow = 'none';
-        parent.style.position = 'relative';
-        parent.style.zIndex = 200; // overlayより上にしたいなら値を大きめに
-    }
 }
 
 // 💡【追加】なぞぷよのクリア条件を判定
@@ -1144,8 +1163,8 @@ function loop() {
             break;
 
         case 'puzzleClear':
-            // 💡【追加】なぞぷよクリア画面
-            document.getElementById('message-overlay').style.background = "rgba(0,0,0,0.6)";
+            const overlay = document.getElementById('message-overlay');
+            if (overlay) overlay.style.background = "rgba(0,0,0,0.6)";
             document.getElementById('main-message').innerText = "CLEAR!";
             document.getElementById('sub-message').innerText = "SELECT & PUSH ENTER";
             isEnterPressed = false;
@@ -1153,6 +1172,7 @@ function loop() {
             isDownPressed = false;
             selectedPuzzleResultMenuIndex = 0;
             updatePuzzleResultMenuDOM();
+            if (overlay) overlay.classList.add('menu-active');
             mode = 'puzzleClearWait';
             break;
 
@@ -1163,13 +1183,14 @@ function loop() {
         case 'puzzleOver':
             // 💡【追加】なぞぷよゲームオーバー画面
             document.getElementById('message-overlay').style.background = "rgba(0,0,0,0.6)";
-            document.getElementById('main-message').innerText = "GAME OVER";
+            document.getElementById('main-message').innerText = "MISS";
             document.getElementById('sub-message').innerText = "SELECT & PUSH ENTER";
             isEnterPressed = false;
             isUpPressed = false;
             isDownPressed = false;
             selectedPuzzleResultMenuIndex = 0;
             updatePuzzleResultMenuDOM();
+            if (overlay) overlay.classList.add('menu-active');
             mode = 'puzzleOverWait';
             break;
 
@@ -1255,29 +1276,26 @@ function selectDifficulty(index) {
 
 // 💡【追加】ゲームをやり直す関数
 function retryGame() {
-    // ポーズ解除
     isPaused = false;
     const pauseMenu = document.getElementById('pause-menu');
     if (pauseMenu) pauseMenu.style.display = 'none';
 
-    // Player のキー状態を確実にクリア
+    // Stage の中身をクリアしてから resetGame を呼ぶ
+    if (Stage) {
+        Stage.fallingPuyoList = [];
+        Stage.erasingPuyoInfoList = [];
+        Stage.isChainMode = false;
+        Stage.chainCount = 0;
+        if (Stage.hideZenkeshi) Stage.hideZenkeshi();
+    }
+
     if (typeof Player !== 'undefined' && Player.clearKeyStatus) Player.clearKeyStatus();
     isUpPressed = false; isDownPressed = false; isEnterPressed = false;
     window.isUpPressed = false; window.isDownPressed = false;
 
-    // もしメニュー表示が出ていたら消す
     const overlay = document.getElementById('message-overlay');
     if (overlay) overlay.classList.remove('menu-active');
 
-    if (Stage) {
-    Stage.fallingPuyoList = [];
-    Stage.erasingPuyoInfoList = [];
-    Stage.isChainMode = false;
-    Stage.chainCount = 0;
-    // 隠れたエフェクトを消す
-    Stage.hideZenkeshi && Stage.hideZenkeshi();
-}
-    // 最後に完全リセット
     resetGame();
 }
 
