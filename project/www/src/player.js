@@ -507,16 +507,16 @@ static initialize () {
 
         if (gameType === 'puzzle') {
             // なぞぷよモード: 安全に取得（範囲外は 0）
-            n1_center = currentPuzzle.nextQueue[puzzleNextQueueIndex] || 0;
-            n1_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 1] || 0;
-            n2_center = currentPuzzle.nextQueue[puzzleNextQueueIndex + 2] || 0;
-            n2_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 3] || 0;
+            n1_center = currentPuzzle.nextQueue[puzzleNextQueueIndex];
+            n1_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 1];
+            n2_center = currentPuzzle.nextQueue[puzzleNextQueueIndex + 2];
+            n2_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 3];
         } else {
             // 通常モード
-            n1_center = this.nextPuyoQueue[0] || 0;
-            n1_movable = this.nextPuyoQueue[1] || 0;
-            n2_center = this.nextPuyoQueue[2] || 0;
-            n2_movable = this.nextPuyoQueue[3] || 0;
+            n1_center = this.nextPuyoQueue[0];
+            n1_movable = this.nextPuyoQueue[1];
+            n2_center = this.nextPuyoQueue[2];
+            n2_movable = this.nextPuyoQueue[3];
         }
 
         // 各画像にサイズを強制適用する補助関数
