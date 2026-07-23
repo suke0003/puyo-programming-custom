@@ -709,25 +709,51 @@ function updatePuzzleGoalDisplay() {
 // 💡【追加】なぞぷよのネクスト一覧を更新
 function updatePuzzleNextListDisplay() {
     if (!currentPuzzle) return;
-    
+
     const nextListContainer = document.getElementById('puzzle-next-list');
-    if (nextListContainer) {
-        nextListContainer.innerHTML = '';
-        
-        // 現在のキューインデックスから表示
-        const colorMap = { 1: '🔴', 2: '🟢', 3: '🔵', 4: '🟡', 5: '🟣' };
-        
-        for (let i = puzzleNextQueueIndex; i < currentPuzzle.nextQueue.length; i += 2) {
-            const color1 = currentPuzzle.nextQueue[i];
-            const color2 = i + 1 < currentPuzzle.nextQueue.length ? currentPuzzle.nextQueue[i + 1] : null;
-            
-            const pairDiv = document.createElement('div');
-            pairDiv.style.fontSize = '12px';
-            pairDiv.style.color = '#fff';
-            pairDiv.innerText = `${colorMap[color1] || '?'}${color2 ? colorMap[color2] : ''}`;
-            
-            nextListContainer.appendChild(pairDiv);
-        }
+    if (!nextListContainer) return;
+    nextListContainer.innerHTML = '';
+
+    // 表示用サイズ（小さめ）
+    const IMG_SIZE = Math.max(20, Math.floor(Config.puyoImgWidth * 0.5));
+
+    // 現在のキューインデックスから表示
+    for (let i = puzzleNextQueueIndex; i < currentPuzzle.nextQueue.length; i += 2) {
+        const color1 = currentPuzzle.nextQueue[i];
+        const color2 = (i + 1 < currentPuzzle.nextQueue.length) ? currentPuzzle.nextQueue[i + 1] : null;
+
+        const pairDiv = document.createElement('div');
+        pairDiv.style.display = 'flex';
+        pairDiv.style.flexDirection = 'row';
+        pairDiv.style.alignItems = 'center';
+        pairDiv.style.gap = '6px';
+        pairDiv.style.marginBottom = '6px';
+
+        // 画像生成のヘルパー（画像をクローンする形で取得）
+        const createSmallPuyoImg = (color) => {
+            if (!color) {
+                const placeholder = document.createElement('div');
+                placeholder.style.width = IMG_SIZE + 'px';
+                placeholder.style.height = IMG_SIZE + 'px';
+                placeholder.style.borderRadius = '50%';
+                placeholder.style.background = 'rgba(255,255,255,0.06)';
+                return placeholder;
+            }
+            const img = PuyoImage.getPuyo(color).cloneNode(true);
+            img.style.width = IMG_SIZE + 'px';
+            img.style.height = IMG_SIZE + 'px';
+            img.style.position = 'static';
+            img.style.left = '';
+            img.style.top = '';
+            return img;
+        };
+
+        const imgA = createSmallPuyoImg(color1);
+        const imgB = createSmallPuyoImg(color2);
+
+        pairDiv.appendChild(imgA);
+        pairDiv.appendChild(imgB);
+        nextListContainer.appendChild(pairDiv);
     }
 }
 

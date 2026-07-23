@@ -181,7 +181,7 @@ static initialize () {
             x: 2, // 中心ぷよの位置: 左から2列目
             y: 0, // 画面上部ギリギリから出てくる
             left: 2 * Config.puyoImgWidth,
-            top: 0,
+            top: Config.puyoImgHeight, // ← 変更: 0 ではなく1セル分下にして画面内表示を保証
             dx: 0, // 動くぷよの相対位置: 動くぷよは上方向にある
             dy: -1, 
             rotation: 90 // 動くぷよの角度は90度（上向き）
@@ -506,17 +506,17 @@ static initialize () {
         let n1_center, n1_movable, n2_center, n2_movable;
 
         if (gameType === 'puzzle') {
-            // なぞぷよモード
-            n1_center = currentPuzzle.nextQueue[puzzleNextQueueIndex];
-            n1_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 1];
-            n2_center = currentPuzzle.nextQueue[puzzleNextQueueIndex + 2];
-            n2_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 3];
+            // なぞぷよモード: 安全に取得（範囲外は 0）
+            n1_center = currentPuzzle.nextQueue[puzzleNextQueueIndex] || 0;
+            n1_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 1] || 0;
+            n2_center = currentPuzzle.nextQueue[puzzleNextQueueIndex + 2] || 0;
+            n2_movable = currentPuzzle.nextQueue[puzzleNextQueueIndex + 3] || 0;
         } else {
             // 通常モード
-            n1_center = this.nextPuyoQueue[0];
-            n1_movable = this.nextPuyoQueue[1];
-            n2_center = this.nextPuyoQueue[2];
-            n2_movable = this.nextPuyoQueue[3];
+            n1_center = this.nextPuyoQueue[0] || 0;
+            n1_movable = this.nextPuyoQueue[1] || 0;
+            n2_center = this.nextPuyoQueue[2] || 0;
+            n2_movable = this.nextPuyoQueue[3] || 0;
         }
 
         // 各画像にサイズを強制適用する補助関数

@@ -218,7 +218,7 @@
             <div id="pause-resume-btn" onclick="clickPauseMenu(0)" onmouseover="hoverPauseMenu(0)" class="pause-menu-btn" style="color: #fff;">▶ ゲームを再開する</div>
             <div id="pause-retry-btn" onclick="clickPauseMenu(1)" onmouseover="hoverPauseMenu(1)" class="pause-menu-btn" style="color: #888;">はじめからやりなおす</div>
             <div id="pause-list-btn" onclick="clickPauseMenu(2)" onmouseover="hoverPauseMenu(2)" class="pause-menu-btn" style="display: none; color: #888;">問題一覧に戻る</div>
-            <div id="pause-title-btn" onclick="clickPauseMenu(2)" onmouseover="hoverPauseMenu(2)" class="pause-menu-btn" style="color: #888;">タイトルに戻る</div>
+            <div id="pause-title-btn" onclick="clickPauseMenu(gameType === 'puzzle' ? 3 : 2)" onmouseover="hoverPauseMenu(2)" class="pause-menu-btn" style="color: #888;">タイトルに戻る</div>
         </div>
     </div>
     <script src="components/loader.js"></script>
