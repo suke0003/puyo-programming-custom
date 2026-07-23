@@ -290,32 +290,34 @@ function updateDifficultyDOM() {
 }
 
 function resetGame() {
+    // 画面上のぷよ画像を消す（DOMクリア）
     const stageElement = Stage.stageElement;
     if (stageElement) {
         const puyoImages = stageElement.querySelectorAll('img[src*="puyo"], img[src*="batankyu"]');
         puyoImages.forEach(img => img.remove());
     }
-    
+
+    // スコア要素をクリア
     const scoreElement = document.getElementById('score');
     if (scoreElement) {
         while (scoreElement.firstChild) {
             scoreElement.removeChild(scoreElement.firstChild);
         }
     }
-    
-    for (let y = 0; y < Config.stageRows; y++) {
-        for (let x = 0; x < Config.stageCols; x++) {
-            Stage.board[y][x] = 0;
-        }
-    }
-    
+
+    // --- 基盤初期化を先に行う ---
+    // Stage.initialize が board の基本構造（13x6）を作るので、まず呼ぶ
+    Stage.initialize();
+    Player.initialize();
+    Score.initialize();
+
+    // なぞぷよ専用初期化
     if (gameType === 'puzzle') {
-        // 💡【追加】なぞぷよモードの初期化
         if (currentPuzzle) {
-            // 初期盤面をコピー
+            // Stage.board を currentPuzzle.initialBoard の内容で上書き（element は null）
             for (let y = 0; y < Config.stageRows; y++) {
                 for (let x = 0; x < Config.stageCols; x++) {
-                    const puyoColor = currentPuzzle.initialBoard[y][x];
+                    const puyoColor = (currentPuzzle.initialBoard[y] && currentPuzzle.initialBoard[y][x]) || 0;
                     if (puyoColor > 0) {
                         Stage.board[y][x] = { puyo: puyoColor, element: null };
                     } else {
@@ -323,25 +325,38 @@ function resetGame() {
                     }
                 }
             }
-            
-            // ネクストキューを設定
-            Player.nextPuyoQueue = [...currentPuzzle.nextQueue];
+
+            // なぞぷよでは currentPuzzle.nextQueue を唯一のソースにする（Player.nextPuyoQueue は空にする）
+            Player.nextPuyoQueue = [];
             puzzleNextQueueIndex = 0;
             puzzleClearConditionMet = false;
+            puzzleSolutionMatched = false;
         }
-        
-        // UIを表示
-        document.getElementById('puzzle-goal-container').style.display = 'block';
-        document.getElementById('puzzle-next-list-container').style.display = 'block';
+
+        // UI表示
+        const goalCont = document.getElementById('puzzle-goal-container');
+        const nextListCont = document.getElementById('puzzle-next-list-container');
+        if (goalCont) goalCont.style.display = 'block';
+        if (nextListCont) nextListCont.style.display = 'block';
         updatePuzzleGoalDisplay();
         updatePuzzleNextListDisplay();
-        puzzleSolutionMatched = false;  // 💡【追加】フラグをリセット
+
+        // 初期盤面を画面に表示（Stage.board に element がないので element を作る）
+        Stage.renderInitialBoard();
+
+        // Stage.puyoCount を再計算
+        Stage.puyoCount = 0;
+        for (let y = 0; y < Config.stageRows; y++) {
+            for (let x = 0; x < Config.stageCols; x++) {
+                if (Stage.board[y][x]) Stage.puyoCount++;
+            }
+        }
     } else if (gameType === 'scoreAttack') {
-        Config.puyoColors = 4; 
-        remainingTime = 120;   
+        Config.puyoColors = 4;
+        remainingTime = 120;
         isTimeUp = false;
-        lastTimerUpdateTime = Date.now(); 
-        
+        lastTimerUpdateTime = Date.now();
+
         const ranking = JSON.parse(localStorage.getItem('puyo_ranking')) || [];
         currentHighScore = ranking.length > 0 ? ranking[0].score : 0;
 
@@ -349,58 +364,48 @@ function resetGame() {
         const highDisp = document.getElementById('highscore-display');
         const timerCont = document.getElementById('timer-container');
         const highCont = document.getElementById('highscore-container');
-        
+
         if (timerDisp) timerDisp.innerText = remainingTime;
-        if (highDisp) highDisp.innerText = currentHighScore; 
+        if (highDisp) highDisp.innerText = currentHighScore;
         if (timerCont) timerCont.style.display = "block";
         if (highCont) highCont.style.display = "block";
     } else {
-        if (selectedDiffIndex === 0) Config.puyoColors = 3; 
-        if (selectedDiffIndex === 1) Config.puyoColors = 4; 
-        if (selectedDiffIndex === 2) Config.puyoColors = 5; 
-        
+        if (selectedDiffIndex === 0) Config.puyoColors = 3;
+        if (selectedDiffIndex === 1) Config.puyoColors = 4;
+        if (selectedDiffIndex === 2) Config.puyoColors = 5;
+
         const timerCont = document.getElementById('timer-container');
         const highCont = document.getElementById('highscore-container');
         if (timerCont) timerCont.style.display = "none";
         if (highCont) highCont.style.display = "none";
     }
-    
+
     if (gameType !== 'puzzle') {
         Player.nextPuyoQueue = [];
     }
-    
-    Stage.initialize();
-    Player.initialize();
-    Score.initialize();
-    
-    // 💡【追加】なぞぷよ時の初期盤面を画面に表示
-    if (gameType === 'puzzle') {
-        Stage.renderInitialBoard();
-        Stage.puyoCount = 0;
-        for (let y = 0; y < Config.stageRows; y++) {
-            for (let x = 0; x < Config.stageCols; x++) {
-                if (Stage.board[y][x]) {
-                    Stage.puyoCount++;
-                }
-            }
-        }
-    }
-    
-    document.getElementById('message-overlay').style.background = "rgba(0,0,0,0)";
-    document.getElementById('main-message').innerText = "";
-    document.getElementById('sub-message').innerText = "";
-    document.getElementById('menu-container').style.display = "none"; 
-    document.getElementById('difficulty-container').style.display = "none"; 
-    
+
+    // 表示系の初期化（overlay 等）
+    const overlay = document.getElementById('message-overlay');
+    if (overlay) overlay.style.background = "rgba(0,0,0,0)";
+    const mainMessage = document.getElementById('main-message');
+    if (mainMessage) mainMessage.innerText = "";
+    const subMessage = document.getElementById('sub-message');
+    if (subMessage) subMessage.innerText = "";
+    const menuContainer = document.getElementById('menu-container');
+    if (menuContainer) menuContainer.style.display = "none";
+    const diffContainer = document.getElementById('difficulty-container');
+    if (diffContainer) diffContainer.style.display = "none";
+
     const rankingContainer = document.getElementById('ranking-container');
     if (rankingContainer) rankingContainer.style.display = "none";
-    
-    // 💡【追加】ゲーム開始時にメニュー用クラスを削除
-    document.getElementById('message-overlay').classList.remove('menu-active');
-    
+
+    // メニュー用クラスを削除
+    if (overlay) overlay.classList.remove('menu-active');
+
+    // フレーム・音声関連初期化
     frame = 0;
     latestRankInIndex = -1;
-    isBatankyuVoicePlayed = false; 
+    isBatankyuVoicePlayed = false;
 
     for (let i = 1; i <= 19; i++) {
         if (i <= 18 && chainVoices[i]) {
@@ -420,12 +425,12 @@ function resetGame() {
         batankyuVoice.volume = 0;
         batankyuVoice.play().then(() => { batankyuVoice.pause(); batankyuVoice.volume = 1; batankyuVoice.currentTime = 0; }).catch(e => {});
     }
-    
+
     // リセット時にキーの押下フラグも綺麗にして誤爆を防ぐ
     isUpPressed = false;
     isDownPressed = false;
     isEnterPressed = false;
-    
+
     mode = 'start';
 }
 

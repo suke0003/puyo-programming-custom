@@ -207,8 +207,10 @@ static initialize () {
     }
 
     static falling (isDownPressed) {
+        const downPressed = Boolean(isDownPressed) || Boolean(window.isDownPressed);
+
         // 💡【修正】なぞぷよモードの場合、下キーが押されていなければ落下させない
-        if (gameType === 'puzzle' && !isDownPressed) {
+        if (gameType === 'puzzle' && !downPressed) {
             // 下キーが押されていないので、接地判定だけを行う
             let x = this.puyoStatus.x;
             let y = this.puyoStatus.y;
@@ -245,15 +247,15 @@ static initialize () {
         if(!isBlocked) {
             // 下にブロックがないなら自由落下してよい。プレイヤー操作中の自由落下処理をする
             this.puyoStatus.top += Config.playerFallingSpeed;
-            if(isDownPressed) {
+            if(downPressed) {
                 // 下キーが押されているならもっと加速する
                 this.puyoStatus.top += Config.playerDownSpeed;
             }
             
-            // 💡 【重要修正】現在の落下蓄積(top)が、現在のマス(y)の底辺を超えたかどうかを正しく判定します
+            // 現在の落下蓄積(top)が、現在のマス(y)の底辺を超えたかどうかを判定
             if(Math.floor(this.puyoStatus.top / Config.puyoImgHeight) > y) {
                 // ブロックの境を超えたので、再チェックする
-                if(isDownPressed) {
+                if(downPressed) {
                     Score.addScore(1);
                 }
                 y += 1;
@@ -268,7 +270,6 @@ static initialize () {
                     return;
                 } else {
                     // 境を超えたらブロックにぶつかった。位置を調節して、接地を開始する
-                    // 💡 余計な引き算はせず、現在の y の位置にぴったり合わせます
                     this.puyoStatus.top = y * Config.puyoImgHeight;
                     this.groundFrame = 1;
                     return;
@@ -289,7 +290,6 @@ static initialize () {
                 return true;
             }
         }
-
     }
     static playing(frame) {
         // まず自由落下を確認する
